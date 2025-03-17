@@ -127,7 +127,7 @@ psql "host=$DB_PRIVATE_IP user=$DB_USER password=$DB_PASSWORD dbname=$DB_NAME ss
 
 ---
 
-## **6. Create Initial Database Tables**
+## **6. Create Database Tables**
 
 Inside the `psql` session:
 
@@ -138,12 +138,6 @@ CREATE TABLE users (
     email VARCHAR(255) NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
--- Insert test data
-INSERT INTO users (username, email) VALUES ('alice', 'alice@example.com');
-
--- Verify the insertion
-SELECT * FROM users;
 ```
 
 ---
@@ -178,7 +172,7 @@ curl -X POST http://localhost:8080/create-user -d '{"username":"bob","email":"bo
 
 ## **8. Debugging Common Issues**
 - Ensure firewall rules allow traffic for required ports (like 8080).
-- Verify Docker logs using `docker logs user-service`.
+- Verify Docker logs using `docker logs CONTAINER_ID`.
 - Use `gcloud sql instances describe $DB_INSTANCE_NAME` to confirm correct IP configurations.
 
 ---
