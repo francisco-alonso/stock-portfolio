@@ -178,9 +178,9 @@ curl -X POST http://localhost:8080/create-user -d '{"username":"bob","email":"bo
 
 ---
 
-# Local Container Testing
+## Local Container Testing
 
-1. User Service
+1. **User Service**
 
 Best approach here is to build the image and push it to container registry
 
@@ -191,7 +191,7 @@ docker push gcr.io/$PROJECT_ID/user-service:latest
 
 Configure VM to retrieve and run images from container registry. Please, refer to this [doc](docs/vm-configure-iam.md).
 
-2. Trading Engine Service
+2. **Trading Engine Service**
 Build the image and push it to container registry
 
 ```bash
