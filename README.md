@@ -153,6 +153,7 @@ DB_NAME=$DB_NAME
 ```
 
 ### Run Docker Container
+
 ```bash
 docker build -t user-service .
 
@@ -177,5 +178,31 @@ curl -X POST http://localhost:8080/create-user -d '{"username":"bob","email":"bo
 
 ---
 
-This guide ensures every step of the setup is well-documented, from VM creation to service deployment with secure environment variable management. For additional steps or issues, update the guide accordingly.
+# Local Container Testing
 
+1. User Service
+
+Best approach here is to build the image and push it to container registry
+
+```bash
+docker build -t user-service user-service/
+docker push gcr.io/$PROJECT_ID/user-service:latest
+```
+
+Configure VM to retrieve and run images from container registry. Please, refer to this [doc](docs/vm-configure-iam.md).
+
+2. Trading Engine Service
+Build the image and push it to container registry
+
+```bash
+docker build -t trade-engine-service trade-engine-service/
+docker push gcr.io/$PROJECT_ID/trade-engine-service:latest
+```
+
+Run container locally with proper service account credentials
+
+```bash
+docker run --rm -p 8081:8081 -e PROJECT_ID=$PROJECT_ID -e PUB_SUB_TOPIC=$TOPIC_ID -e GOOGLE_APPLICATION_CREDENTIALS="/gcp-auth/key.json" -v $ABSOLUTE_PATH_KEY:/gcp-auth/key.json:ro trade-engine-service
+```
+
+Note: This approach is for testing purposes. If you need to run locally a service with a service account key, avoid pulling it into your machine from GCP env. According to GCP best practices, you should use Workload Identity.
