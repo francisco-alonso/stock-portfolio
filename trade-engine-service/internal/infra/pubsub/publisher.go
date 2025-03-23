@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/francisco-alonso/trade-engine-service/internal/domain"
+	"github.com/francisco-alonso/stock-portfolio/trade-engine-service/internal/domain"
 )
 
 type Publisher struct {

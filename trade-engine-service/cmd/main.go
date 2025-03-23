@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/francisco-alonso/trade-engine-service/internal/adapter/api"
-	"github.com/francisco-alonso/trade-engine-service/internal/application"
-	"github.com/francisco-alonso/trade-engine-service/internal/infra/pubsub"
+	"github.com/francisco-alonso/stock-portfolio/trade-engine-service/internal/adapter/api"
+	"github.com/francisco-alonso/stock-portfolio/trade-engine-service/internal/application"
+	"github.com/francisco-alonso/stock-portfolio/trade-engine-service/internal/infra/pubsub"
 )
 
 func main() {

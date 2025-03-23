@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"log"
 
-	"github.com/francisco-alonso/go-template/internal/domain"
+	"github.com/francisco-alonso/stock-portfolio/user-service/internal/domain"
 )
 
 type PostgresUserRepository struct {
