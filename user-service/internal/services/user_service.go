@@ -1,8 +1,8 @@
 package services
 
 import (
-	"github.com/francisco-alonso/go-template/internal/domain"
-	"github.com/francisco-alonso/go-template/internal/ports"
+	"github.com/francisco-alonso/stock-portfolio/user-service/internal/domain"
+	"github.com/francisco-alonso/stock-portfolio/user-service/internal/ports"
 )
 
 type UserService struct {

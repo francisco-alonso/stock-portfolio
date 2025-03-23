@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/francisco-alonso/trade-engine-service/internal/application"
-	"github.com/francisco-alonso/trade-engine-service/internal/domain"
+	"github.com/francisco-alonso/stock-portfolio/trade-engine-service/internal/application"
+	"github.com/francisco-alonso/stock-portfolio/trade-engine-service/internal/domain"
 )
 
 type Handler struct {

@@ -1,17 +1,11 @@
-# Project Setup Guide for GCP Microservices System
-
-This README provides a detailed, step-by-step guide for setting up a microservices system using Google Cloud Platform (GCP), with services deployed on Compute Engine VMs, PostgreSQL on Cloud SQL, and Docker for service management.
-
----
-
 ## **Prerequisites**
 
 - **GCP Project**: Ensure you have a GCP project created.
 - **Billing**: Enabled billing for the project.
 - **gcloud CLI**: Installed and authenticated with your GCP account.
 - **Docker**: Installed on your local machine for image building.
-
----
+- **PostgreSQL Client**: Installed for local database access.
+- **IAM Permissions**: Ensure proper access to Cloud SQL and Secret Manager.
 
 ## **1. Set Environment Variables**
 
@@ -23,13 +17,14 @@ export VPC_NETWORK="default" # Assuming default VPC
 export DB_INSTANCE_NAME="trading-db-instance"
 export DB_NAME="trading_db"
 export DB_USER="trading_user"
-export DB_PASSWORD="your-db-password"
 export DB_PRIVATE_IP="<PRIVATE_IP_OF_CLOUD_SQL>"
+export SECRET_ID="portfolio-db-password" # when running the service this will be retrieved form secret manager
+export TOPIC_ID="your-topic-id" # when order is submitted
 ```
 
----
-
 ## **2. Create Compute Engine VMs**
+
+We will create 2 VMs. `vm1` will run user management service and `vm2` will run trading, portfolio services.
 
 ```bash
 gcloud compute instances create vm1 \
@@ -42,6 +37,8 @@ gcloud compute instances create vm1 \
     --subnet=default \
     --tags=http-server,https-server \
     --boot-disk-size=20GB
+    --service-account=vm1-service-account@$PROJECT_ID.iam.gserviceaccount.com \
+    --scopes=https://www.googleapis.com/auth/cloud-platform
 
 gcloud compute instances create vm2 \
     --project=$PROJECT_ID \
@@ -53,9 +50,9 @@ gcloud compute instances create vm2 \
     --subnet=default \
     --tags=http-server,https-server \
     --boot-disk-size=20GB
+     --service-account=vm2-service-account@$PROJECT_ID.iam.gserviceaccount.com \
+    --scopes=https://www.googleapis.com/auth/cloud-platform
 ```
-
----
 
 ## **3. Install Docker on Each VM**
 
@@ -85,7 +82,6 @@ sudo systemctl enable docker
 docker --version
 ```
 
----
 
 ## **4. Set Up Cloud SQL (PostgreSQL)**
 
@@ -103,107 +99,109 @@ gcloud sql instances create $DB_INSTANCE_NAME \
 
 ### Set Root Password
 ```bash
-gcloud sql users set-password postgres --instance=$DB_INSTANCE_NAME --password=$DB_PASSWORD
+gcloud sql users set-password postgres --instance=$DB_INSTANCE_NAME --password=$SECRET_ID
 ```
 
 ### Create Database and User
 ```bash
 gcloud sql databases create $DB_NAME --instance=$DB_INSTANCE_NAME
 
-gcloud sql users create $DB_USER --instance=$DB_INSTANCE_NAME --password=$DB_PASSWORD
+gcloud sql users create $DB_USER --instance=$DB_INSTANCE_NAME --password=$SECRET_ID
 ```
 
----
-
-## **5. Configure Access to Cloud SQL**
-
-- Ensure that the Cloud SQL instance is associated with the correct VPC.
-- Verify that the VMs can connect using the private IP.
-- Test the connection from VM:
+## **5. Store Portfolio Service DB Password in Secret Manager**
 
 ```bash
-psql "host=$DB_PRIVATE_IP user=$DB_USER password=$DB_PASSWORD dbname=$DB_NAME sslmode=disable"
+gcloud secrets create $SECRET_ID --replication-policy="automatic"
+gcloud secrets versions add $SECRET_ID --data-file=password.txt
 ```
 
----
+Ensure the VM’s service account has access to Secret Manager:
+```bash
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:vm2-service-account@$PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+    --member="serviceAccount:vm1-service-account@$PROJECT_ID.iam.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+```
 
-## **6. Create Database Tables**
+## **6. Database Schema**
 
-Inside the `psql` session:
-
+### **User Service Schema**
 ```sql
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     username VARCHAR(100) NOT NULL UNIQUE,
-    email VARCHAR(255) NOT NULL UNIQUE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    email VARCHAR(255) NOT NULL UNIQUE
 );
 ```
 
----
-
-## **7. Build and Run User Service in Docker**
-
-### .env File Example
-```env
-DB_HOST=$DB_PRIVATE_IP
-DB_USER=$DB_USER
-DB_PASSWORD=$DB_PASSWORD
-DB_NAME=$DB_NAME
+**Go Model:**
+```go
+type User struct {
+    ID       int64
+    Username string
+    Email    string
+}
 ```
 
-### Run Docker Container
+### **Portfolio Service Schema**
+```sql
+CREATE TABLE positions (
+    user_id VARCHAR(100) NOT NULL,
+    asset VARCHAR(50) NOT NULL,
+    quantity INT NOT NULL,
+    price FLOAT NOT NULL,
+    PRIMARY KEY (user_id, asset)
+);
+```
+
+**Go Model:**
+```go
+type Position struct {
+    UserID   string  `json:"user_id"`
+    Asset    string  `json:"asset"`
+    Quantity int     `json:"quantity"`
+    Price    float64 `json:"price"`
+}
+```
+
+## **7. Running Containers Locally with Cloud SQL Access**
+
+### **Set Up Cloud SQL Proxy**
+
+To connect to Cloud SQL from your local machine, install and run Cloud SQL Proxy:
 
 ```bash
-docker build -t user-service .
+gcloud auth login
+gcloud auth application-default login
 
+wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy
+chmod +x cloud_sql_proxy
+
+./cloud_sql_proxy -instances=$PROJECT_ID:$REGION:$DB_INSTANCE_NAME=tcp:5432 &
+```
+
+### **Run Containers Locally**
+
+```bash
 docker run -d \
     --name user-service \
-    --env-file .env \
     -p 8080:8080 \
+    -e DB_HOST=127.0.0.1 \
+    -e DB_USER=$DB_USER \
+    -e DB_PASSWORD=$SECRET_ID \
+    -e DB_NAME=$DB_NAME \
     user-service
+
+
+docker run -d \
+    --name portfolio-service \
+    -p 8082:8082 \
+    -e DB_HOST=127.0.0.1 \
+    -e DB_USER=$DB_USER \
+    -e DB_PASSWORD=$SECRET_ID \
+    -e DB_NAME=$DB_NAME \
+    portfolio-service
 ```
-
-### Test the Create-User Endpoint
-```bash
-curl -X POST http://localhost:8080/create-user -d '{"username":"bob","email":"bob@example.com"}' -H "Content-Type: application/json"
-```
-
----
-
-## **8. Debugging Common Issues**
-- Ensure firewall rules allow traffic for required ports (like 8080).
-- Verify Docker logs using `docker logs CONTAINER_ID`.
-- Use `gcloud sql instances describe $DB_INSTANCE_NAME` to confirm correct IP configurations.
-
----
-
-## Local Container Testing
-
-1. **User Service**
-
-    Best approach here is to build the image and push it to container registry
-    
-    ```bash
-    docker build -t user-service user-service/
-    docker push gcr.io/$PROJECT_ID/user-service:latest
-    ```
-    
-    Configure VM to retrieve and run images from container registry. Please, refer to this [doc](docs/vm-configure-iam.md).
-
-2. **Trading Engine Service**
-
-    Build the image and push it to container registry
-    
-    ```bash
-    docker build -t trade-engine-service trade-engine-service/
-    docker push gcr.io/$PROJECT_ID/trade-engine-service:latest
-    ```
-    
-    Run container locally with proper service account credentials
-    
-    ```bash
-    docker run --rm -p 8081:8081 -e PROJECT_ID=$PROJECT_ID -e PUB_SUB_TOPIC=$TOPIC_ID -e GOOGLE_APPLICATION_CREDENTIALS="/gcp-auth/key.json" -v $ABSOLUTE_PATH_KEY:/gcp-auth/key.json:ro trade-engine-service
-    ```
-
-Note: This approach is for testing purposes. If you need to run locally a service with a service account key, avoid pulling it into your machine from GCP env. According to GCP best practices, you should use Workload Identity.

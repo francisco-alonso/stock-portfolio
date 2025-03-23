@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/francisco-alonso/go-template/internal/services"
+	"github.com/francisco-alonso/stock-portfolio/user-service/internal/services"
 )
 
 type UserHandler struct {

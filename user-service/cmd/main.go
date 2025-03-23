@@ -8,9 +8,9 @@ import (
 	"net/url"
 
 	"github.com/caarlos0/env/v11"
-	"github.com/francisco-alonso/go-template/internal/adapters/api"
-	postgres "github.com/francisco-alonso/go-template/internal/adapters/pg"
-	"github.com/francisco-alonso/go-template/internal/services"
+	"github.com/francisco-alonso/stock-portfolio/user-service/internal/adapters/api"
+	postgres "github.com/francisco-alonso/stock-portfolio/user-service/internal/adapters/pg"
+	"github.com/francisco-alonso/stock-portfolio/user-service/internal/services"
 	_ "github.com/lib/pq"
 )
 

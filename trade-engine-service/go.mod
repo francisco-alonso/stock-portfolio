@@ -1,4 +1,4 @@
-module github.com/francisco-alonso/trade-engine-service
+module github.com/francisco-alonso/stock-portfolio/trade-engine-service
 
 go 1.23.0
 
